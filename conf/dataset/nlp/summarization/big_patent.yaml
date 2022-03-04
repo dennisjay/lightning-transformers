@@ -1,0 +1,9 @@
+# @package dataset
+defaults:
+  - nlp/default
+_target_: lightning_transformers.task.nlp.summarization.BigPatentSummarizationDataModule
+cfg:
+  dataset_name: big_patent
+  dataset_config_name: d
+  max_source_length: 4096
+  max_target_length: 512

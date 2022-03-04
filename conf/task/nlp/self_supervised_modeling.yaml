@@ -1,0 +1,6 @@
+# @package task
+defaults:
+  - nlp/default
+  - override /dataset@_group_: nlp/language_modeling/default
+_target_: lightning_transformers.task.nlp.self_supervised_modeling.SelfSupervisedModelingTransformer
+downstream_model_type: transformers.AutoModel

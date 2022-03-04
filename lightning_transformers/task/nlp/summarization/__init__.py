@@ -2,5 +2,6 @@ from lightning_transformers.task.nlp.summarization.data import SummarizationData
 from lightning_transformers.task.nlp.summarization.datasets import (  # noqa: F401
     CNNDailyMailSummarizationDataModule,
     XsumSummarizationDataModule,
+    BigPatentSummarizationDataModule
 )
 from lightning_transformers.task.nlp.summarization.model import SummarizationTransformer  # noqa: F401
