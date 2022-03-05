@@ -29,10 +29,10 @@ class SelfSupervisedHeadModel(nn.Module):
         self.text_embed_dim = 768
         self.projection_dim = 512
 
-        self.text_projection_one = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
-        self.text_projection_two = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
+        #self.text_projection_one = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
+        #self.text_projection_two = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
 
-        self.logit_scale_init_value = 0.1
+        self.logit_scale_init_value = 2.6592
 
         self.logit_scale = nn.Parameter(torch.ones([]) * self.logit_scale_init_value)
 
@@ -61,8 +61,8 @@ class SelfSupervisedHeadModel(nn.Module):
         dropout_downstream_1 = self.dropout_1(downstream_outputs.last_hidden_state.mean(axis=1))
         dropout_downstream_2 = self.dropout_2(downstream_outputs.last_hidden_state.mean(axis=1))
 
-        embeds_one = self.text_projection_one(dropout_downstream_1)
-        embeds_two = self.text_projection_two(dropout_downstream_2)
+        embeds_one = dropout_downstream_1 #self.text_projection_one(dropout_downstream_1)
+        embeds_two = dropout_downstream_2 #self.text_projection_two(dropout_downstream_2)
 
         # normalized features
         image_embeds = embeds_one / embeds_one.norm(dim=-1, keepdim=True)
