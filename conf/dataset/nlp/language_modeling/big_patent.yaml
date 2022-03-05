@@ -4,5 +4,5 @@ defaults:
 _target_: lightning_transformers.task.nlp.language_modeling.LanguageModelingDataModule
 cfg:
   dataset_name: big_patent
-  dataset_config_name: all
-  block_size: 512
+  dataset_config_name: d
+  block_size: 4096
