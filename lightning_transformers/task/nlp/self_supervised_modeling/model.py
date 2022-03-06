@@ -94,11 +94,9 @@ class SelfSupervisedHeadModel(nn.Module):
         )
 
     def _compute_embedding(
-            self, hidden_states, attn_mask, pooling_strategy="mean"
+            self, hidden_states, attn_mask, layer_index=-1
     ):
-        fill_vals = {'cls': 0.0, 'mean': 0.0, 'max': -np.inf, 'min': np.inf}
-        fill_val = torch.tensor(fill_vals[pooling_strategy], device="cuda")
-        layer = hidden_states[self.layer_index]
+        layer = hidden_states[layer_index]
 
         # Fix LongFormerModel like model which has mismatch seq_len between
         # attention_mask and hidden_states
@@ -108,7 +106,7 @@ class SelfSupervisedHeadModel(nn.Module):
 
         expand_attn_mask = attn_mask.unsqueeze(-1).expand_as(layer)
 
-        layer = torch.where(expand_attn_mask.bool(), layer, fill_val)
+        layer = torch.where(expand_attn_mask.bool(), layer, torch.zeros_like(layer))
         embeddings = layer.sum(dim=1) / expand_attn_mask.sum(dim=1)
         return embeddings
 
