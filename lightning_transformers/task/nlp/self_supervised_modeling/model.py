@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import numpy as np
 import torch
 from torch import nn
 from transformers.models.clip.modeling_clip import clip_loss, CLIPOutput
@@ -28,9 +29,6 @@ class SelfSupervisedHeadModel(nn.Module):
 
         self.text_embed_dim = 768
         self.projection_dim = 512
-
-        #self.text_projection_one = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
-        #self.text_projection_two = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False)
 
         self.logit_scale_init_value = 2.6592
 
@@ -51,18 +49,21 @@ class SelfSupervisedHeadModel(nn.Module):
         downstream_outputs = self.downstream_model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=True,
+            # token_type_ids=token_type_ids,
+            # position_ids=position_ids,
+            # output_attentions=output_attentions,
+            output_hidden_states=True,
+            return_dict=True
         )
 
-        dropout_downstream_1 = self.dropout_1(downstream_outputs.last_hidden_state.mean(axis=1))
-        dropout_downstream_2 = self.dropout_2(downstream_outputs.last_hidden_state.mean(axis=1))
+        hidden_states = downstream_outputs.hidden_states
+        embeddings = self._compute_embedding(hidden_states, attention_mask)
 
-        embeds_one = dropout_downstream_1 #self.text_projection_one(dropout_downstream_1)
-        embeds_two = dropout_downstream_2 #self.text_projection_two(dropout_downstream_2)
+        dropout_downstream_1 = self.dropout_1(embeddings)
+        dropout_downstream_2 = self.dropout_2(embeddings)
+
+        embeds_one = dropout_downstream_1
+        embeds_two = dropout_downstream_2
 
         # normalized features
         image_embeds = embeds_one / embeds_one.norm(dim=-1, keepdim=True)
@@ -78,7 +79,8 @@ class SelfSupervisedHeadModel(nn.Module):
             loss = clip_loss(logits_per_text)
 
         if not return_dict:
-            output = (logits_per_image, logits_per_text, text_embeds, image_embeds, downstream_outputs[1], downstream_outputs[1])
+            output = (
+            logits_per_image, logits_per_text, text_embeds, image_embeds, downstream_outputs[1], downstream_outputs[1])
             return ((loss,) + output) if loss is not None else output
 
         return CLIPOutput(
@@ -91,6 +93,24 @@ class SelfSupervisedHeadModel(nn.Module):
             vision_model_output=downstream_outputs[1],
         )
 
+    def _compute_embedding(
+            self, hidden_states, attn_mask, pooling_strategy="mean"
+    ):
+        fill_vals = {'cls': 0.0, 'mean': 0.0, 'max': -np.inf, 'min': np.inf}
+        fill_val = torch.tensor(fill_vals[pooling_strategy], device="cuda")
+        layer = hidden_states[self.layer_index]
+
+        # Fix LongFormerModel like model which has mismatch seq_len between
+        # attention_mask and hidden_states
+        padding_len = layer.size(1) - attn_mask.size(1)
+        if padding_len > 0:
+            attn_mask = torch.nn.functional.pad(attn_mask, (0, padding_len), value=0)
+
+        expand_attn_mask = attn_mask.unsqueeze(-1).expand_as(layer)
+
+        layer = torch.where(expand_attn_mask.bool(), layer, fill_val)
+        embeddings = layer.sum(dim=1) / expand_attn_mask.sum(dim=1)
+        return embeddings
 
 
 class SelfSupervisedModelingTransformer(HFTransformer):
